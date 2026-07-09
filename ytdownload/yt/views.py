@@ -128,6 +128,12 @@ def _handle_download(request):
 from .models import DownloadTicket
 
 def handle_download(request):
+    cookie_path = '/tmp/cookies.txt'
+    if not os.path.exists(cookie_path):
+        cookies_content = os.getenv('COOKIES_CONTENT')
+        if cookies_content:
+            with open(cookie_path, 'w') as f:
+                f.write(cookies_content)
     video_url = request.POST.get("video_url", "").strip()
 
     if not video_url:
@@ -150,6 +156,7 @@ def handle_download(request):
         'max_filesize': MAX_FILESIZE,
         'quiet': True,
         'no_warnings': True,
+        'cookiefile': '/tmp/cookies.txt',
     }
 
     try:
