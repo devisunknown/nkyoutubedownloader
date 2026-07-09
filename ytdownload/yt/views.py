@@ -16,8 +16,7 @@ from datetime import timedelta
 from django_ratelimit.decorators import ratelimit
 
 from .models import DownloadTicket
-
-
+from urllib.parse import urlparse 
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +52,21 @@ class DeleteAfterStreamFileResponse(FileResponse):
         except Exception:
             logger.exception("Failed to clean up temp dir %s", self._temp_dir)
 
+def done(request):
+    return render(request, "done.html")
+  
 
+
+
+@ratelimit(key='ip', rate='7/m', block=True)
 def index(request):
     if request.method == "POST":
-        return _handle_download(request)
+        
+        _handle_download(request)
+        
+        
+        return redirect('done') 
+    
     return render(request, "index.html")
 
 
@@ -112,16 +122,12 @@ def _handle_download(request):
             "error": "Sorry, that video couldn't be downloaded. "
                      "Check the link and try again."
         })
-
-
-def done(request):
-    return render(request, "done.html")
-
+  
 
 
 from .models import DownloadTicket
 
-def _handle_download(request):
+def handle_download(request):
     video_url = request.POST.get("video_url", "").strip()
 
     if not video_url:
@@ -182,7 +188,9 @@ def stream_download(request, ticket_id):
         ticket = DownloadTicket.objects.get(id=ticket_id, status=DownloadTicket.Status.READY)
     except DownloadTicket.DoesNotExist:
         raise Http404("This download link has expired or was already used.")
-
+    ticket.status = DownloadTicket.Status.DOWNLOADED
+    ticket.save()
+    
     if ticket.is_expired() or not os.path.exists(ticket.filepath):
         ticket.status = DownloadTicket.Status.EXPIRED
         ticket.save()
@@ -192,7 +200,7 @@ def stream_download(request, ticket_id):
     ticket.status = DownloadTicket.Status.DOWNLOADED
     ticket.save()
 
-    return _DeleteAfterStreamFileResponse(
+    return DeleteAfterStreamFileResponse(
         ticket.filepath,
         ticket.temp_dir,
         as_attachment=True,
