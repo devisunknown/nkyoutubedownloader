@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NK YouTube Downloader</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #080808;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .blob {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            animation: drift 8s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .blob1 { width: 400px; height: 400px; background: #ff0000; top: -100px; left: -100px; animation-delay: 0s; }
+        .blob2 { width: 300px; height: 300px; background: #ff6600; bottom: -80px; right: -80px; animation-delay: 3s; }
+        .blob3 { width: 250px; height: 250px; background: #cc0000; top: 50%; left: 50%; transform: translate(-50%, -50%); animation-delay: 1.5s; }
+
+        @keyframes drift {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33%       { transform: translate(30px, -30px) scale(1.05); }
+            66%       { transform: translate(-20px, 20px) scale(0.95); }
+        }
+
+        .card {
+            position: relative;
+            z-index: 1;
+            width: 90%;
+            max-width: 460px;
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 24px;
+            padding: 48px 40px;
+            box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(40px);
+        }
+
+        @keyframes slideUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .logo-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, #ff2200, #ff6600);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 8px 24px rgba(255, 50, 0, 0.4);
+        }
+
+        .logo-icon svg { width: 26px; height: 26px; fill: #fff; }
+
+        .logo-text { display: flex; flex-direction: column; }
+        .logo-text span:first-child { font-size: 1.1rem; font-weight: 700; letter-spacing: -0.3px; }
+        .logo-text span:last-child { font-size: 0.75rem; color: #555; letter-spacing: 0.5px; text-transform: uppercase; }
+
+        h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; text-align: center; }
+
+        .subtitle { text-align: center; color: #555; font-size: 0.88rem; margin-bottom: 32px; line-height: 1.5; }
+
+        .input-group { position: relative; margin-bottom: 16px; }
+
+        .input-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            stroke: #444;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            pointer-events: none;
+            transition: stroke 0.2s;
+        }
+
+        input[type="url"] {
+            width: 100%;
+            padding: 14px 16px 14px 44px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 0.92rem;
+            outline: none;
+            transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+        }
+
+        input[type="url"]::placeholder { color: #444; }
+
+        input[type="url"]:focus {
+            border-color: rgba(255, 80, 0, 0.5);
+            background: rgba(255, 255, 255, 0.07);
+            box-shadow: 0 0 0 3px rgba(255, 50, 0, 0.1);
+        }
+
+        .input-group:focus-within .input-icon { stroke: #ff4400; }
+
+        button[type="submit"] {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #ff2200, #ff6600);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+            box-shadow: 0 8px 24px rgba(255, 50, 0, 0.35);
+        }
+
+        button[type="submit"]:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(255, 50, 0, 0.5); }
+        button[type="submit"]:active { transform: translateY(0); opacity: 0.9; }
+        button[type="submit"] svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+        button[type="submit"].loading { opacity: 0.7; pointer-events: none; }
+
+        .spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+
+        button.loading .spinner { display: block; }
+        button.loading .btn-icon { display: none; }
+        button.loading .btn-label::after { content: 'ing...'; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-msg {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            padding: 12px 16px;
+            background: rgba(255, 50, 50, 0.08);
+            border: 1px solid rgba(255, 50, 50, 0.2);
+            border-radius: 10px;
+            color: #ff6666;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .error-msg svg { width: 16px; height: 16px; stroke: #ff6666; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .divider { height: 1px; background: rgba(255,255,255,0.06); margin: 28px 0 20px; }
+
+        .footer { text-align: center; font-size: 0.78rem; color: #333; }
+        .footer a { color: #ff4400; text-decoration: none; font-weight: 600; }
+        .footer a:hover { color: #ff6600; }
+    </style>
+</head>
+<body>
+
+    <div class="blob blob1"></div>
+    <div class="blob blob2"></div>
+    <div class="blob blob3"></div>
+
+    <div class="card">
+
+        <div class="logo">
+            <div class="logo-icon">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.2 2.8 12 2.8 12 2.8s-4.2 0-6.8.2c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.7 9.1.7 11.3v2c0 2.1.3 4.3.3 4.3s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.3 21.8 12 21.8 12 21.8s4.2 0 6.8-.3c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.3-2.1.3-4.3v-2C23.3 9.1 23 7 23 7zM9.7 15.5V8.4l8.1 3.6-8.1 3.5z"/>
+                </svg>
+            </div>
+            <div class="logo-text">
+                <span>NK Downloader</span>
+                <span>by devisunknown</span>
+            </div>
+        </div>
+
+        <h1>Download Any Video</h1>
+        <p class="subtitle">Paste a YouTube link and get the best quality video downloaded instantly.</p>
+
+        <form method="POST" action="" id="dlForm">
+            {% csrf_token %}
+            <div class="input-group">
+                <input
+                    type="url"
+                    id="url"
+                    name="video_url"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    autocomplete="off"
+                    required
+                />
+                <svg class="input-icon" viewBox="0 0 24 24">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+            </div>
+
+            <button type="submit" id="dlBtn">
+                <div class="spinner"></div>
+                <svg class="btn-icon" viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                <span class="btn-label">Download</span>
+            </button>
+        </form>
+
+        {% if error %}
+        <div class="error-msg">
+            <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <div class="divider"></div>
+
+        <p class="footer">Made by <a href="#">devisunknown (nk)</a> &mdash; for personal use only</p>
+
+    </div>
+
+    <script>
+        const form = document.getElementById('dlForm');
+        const btn  = document.getElementById('dlBtn');
+
+        form.addEventListener('submit', () => {
+            btn.classList.add('loading');
+        });
+    </script>
+
+</body>
+</html>
