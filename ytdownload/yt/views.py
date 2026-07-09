@@ -22,7 +22,15 @@ ALLOWED_HOSTS = {
 }
 
 MAX_FILESIZE = 200 * 1024 * 1024  
-COOKIE_FILE = "/tmp/cookies.txt"
+
+
+COOKIE_FILE = os.environ.get("COOKIE_FILE") or next(
+    (p for p in (
+        "/etc/secrets/cookies.txt",
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "cookies.txt"),
+    ) if os.path.exists(p)),
+    "/etc/secrets/cookies.txt", 
+)
 
 
 def _is_allowed_youtube_url(url: str) -> bool:
@@ -61,9 +69,16 @@ def _build_ydl_opts(output_template: str) -> dict:
         "quiet": True,
         "no_warnings": True,
     }
-  
+    
+    
     if os.path.exists(COOKIE_FILE):
         opts["cookiefile"] = COOKIE_FILE
+    else:
+        logger.warning(
+            "No cookies file found at %s — YouTube requests will go out "
+            "unauthenticated and may be blocked with a bot-check error.",
+            COOKIE_FILE,
+        )
     return opts
 
 
