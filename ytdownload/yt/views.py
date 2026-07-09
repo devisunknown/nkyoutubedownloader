@@ -23,6 +23,8 @@ ALLOWED_HOSTS = {
 }
 
 MAX_FILESIZE = 200 * 1024 * 1024  
+
+
 _DECODED_COOKIE_PATH = "/tmp/cookies_decoded.txt"
 
 
@@ -57,15 +59,15 @@ def _resolve_cookie_file() -> str:
 
 COOKIE_FILE = _resolve_cookie_file()
 
-
 def _cookie_file_diagnostics(path: str) -> str:
     if not os.path.exists(path):
         return "file does not exist"
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
-            lines = [f.readline() for _ in range(3)]
-        tab_lines = sum(1 for l in lines if "\t" in l)
-        return f"first_lines_have_tabs={tab_lines}/{len([l for l in lines if l.strip()])}"
+            
+            data_lines = [l for l in f if l.strip() and not l.startswith("#")][:3]
+        tab_lines = sum(1 for l in data_lines if "\t" in l)
+        return f"data_lines_have_tabs={tab_lines}/{len(data_lines)}"
     except Exception as e:
         return f"error reading file: {e}"
 
@@ -116,9 +118,24 @@ def _build_ydl_opts(output_template: str, temp_dir: str) -> dict:
         "max_filesize": MAX_FILESIZE,
         "quiet": True,
         "no_warnings": True,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "ios", "web"],
+            }
+        },
+        "user_agent": (
+            "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36"
+        ),
     }
+
+    
+    proxy_url = os.environ.get("PROXY_URL")
+    if proxy_url:
+        opts["proxy"] = proxy_url
+
     if os.path.exists(COOKIE_FILE):
-      
+       
         writable_cookie_copy = os.path.join(temp_dir, "cookies.txt")
         try:
             shutil.copyfile(COOKIE_FILE, writable_cookie_copy)
