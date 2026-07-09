@@ -3,6 +3,7 @@ import re
 import shutil
 import tempfile
 import logging
+import base64
 from urllib.parse import urlparse
 
 import yt_dlp
@@ -21,16 +22,36 @@ ALLOWED_HOSTS = {
     "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be",
 }
 
-MAX_FILESIZE = 200 * 1024 * 1024  
+MAX_FILESIZE = 200 * 1024 * 1024 
 
 
-COOKIE_FILE = os.environ.get("COOKIE_FILE") or next(
-    (p for p in (
+_DECODED_COOKIE_PATH = "/tmp/cookies_decoded.txt"
+
+
+def _resolve_cookie_file() -> str:
+    b64 = os.environ.get("COOKIE_FILE_B64")
+    if b64:
+        try:
+            with open(_DECODED_COOKIE_PATH, "wb") as f:
+                f.write(base64.b64decode(b64))
+            return _DECODED_COOKIE_PATH
+        except Exception:
+            logger.exception("Failed to decode COOKIE_FILE_B64")
+
+    if os.environ.get("COOKIE_FILE"):
+        return os.environ["COOKIE_FILE"]
+
+    for p in (
         "/etc/secrets/cookies.txt",
         os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "cookies.txt"),
-    ) if os.path.exists(p)),
-    "/etc/secrets/cookies.txt", 
-)
+    ):
+        if os.path.exists(p):
+            return p
+
+    return "/etc/secrets/cookies.txt" 
+
+
+COOKIE_FILE = _resolve_cookie_file()
 
 
 def _cookie_file_diagnostics(path: str) -> str:
@@ -93,7 +114,7 @@ def _build_ydl_opts(output_template: str, temp_dir: str) -> dict:
         "no_warnings": True,
     }
     if os.path.exists(COOKIE_FILE):
-       
+    
         writable_cookie_copy = os.path.join(temp_dir, "cookies.txt")
         try:
             shutil.copyfile(COOKIE_FILE, writable_cookie_copy)
