@@ -21,15 +21,24 @@ ALLOWED_HOSTS = {
     "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be",
 }
 
-MAX_FILESIZE = 200 * 1024 * 1024  
-
+MAX_FILESIZE = 200 * 1024 * 1024 
 
 COOKIE_FILE = os.environ.get("COOKIE_FILE") or next(
     (p for p in (
         "/etc/secrets/cookies.txt",
         os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "cookies.txt"),
     ) if os.path.exists(p)),
-    "/etc/secrets/cookies.txt", 
+    "/etc/secrets/cookies.txt",  
+)
+
+
+logger.warning(
+    "STARTUP COOKIE CHECK: resolved COOKIE_FILE=%s (exists=%s) | "
+    "/etc/secrets exists=%s, contents=%s",
+    COOKIE_FILE,
+    os.path.exists(COOKIE_FILE),
+    os.path.isdir("/etc/secrets"),
+    os.listdir("/etc/secrets") if os.path.isdir("/etc/secrets") else "N/A",
 )
 
 
@@ -69,7 +78,6 @@ def _build_ydl_opts(output_template: str) -> dict:
         "quiet": True,
         "no_warnings": True,
     }
-    
     
     if os.path.exists(COOKIE_FILE):
         opts["cookiefile"] = COOKIE_FILE
