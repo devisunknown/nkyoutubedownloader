@@ -22,9 +22,7 @@ ALLOWED_HOSTS = {
     "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be",
 }
 
-MAX_FILESIZE = 200 * 1024 * 1024 
-
-
+MAX_FILESIZE = 200 * 1024 * 1024  
 _DECODED_COOKIE_PATH = "/tmp/cookies_decoded.txt"
 
 
@@ -32,8 +30,14 @@ def _resolve_cookie_file() -> str:
     b64 = os.environ.get("COOKIE_FILE_B64")
     if b64:
         try:
+            decoded = base64.b64decode(b64)
             with open(_DECODED_COOKIE_PATH, "wb") as f:
-                f.write(base64.b64decode(b64))
+                f.write(decoded)
+            logger.warning(
+                "COOKIE_FILE_B64 present: raw_len=%d chars, decoded_len=%d bytes, "
+                "decoded_starts_with=%r",
+                len(b64), len(decoded), decoded[:40],
+            )
             return _DECODED_COOKIE_PATH
         except Exception:
             logger.exception("Failed to decode COOKIE_FILE_B64")
@@ -48,7 +52,7 @@ def _resolve_cookie_file() -> str:
         if os.path.exists(p):
             return p
 
-    return "/etc/secrets/cookies.txt" 
+    return "/etc/secrets/cookies.txt"  
 
 
 COOKIE_FILE = _resolve_cookie_file()
@@ -114,7 +118,7 @@ def _build_ydl_opts(output_template: str, temp_dir: str) -> dict:
         "no_warnings": True,
     }
     if os.path.exists(COOKIE_FILE):
-    
+      
         writable_cookie_copy = os.path.join(temp_dir, "cookies.txt")
         try:
             shutil.copyfile(COOKIE_FILE, writable_cookie_copy)
