@@ -21,24 +21,38 @@ ALLOWED_HOSTS = {
     "youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be",
 }
 
-MAX_FILESIZE = 200 * 1024 * 1024 
+MAX_FILESIZE = 200 * 1024 * 1024  
+
 
 COOKIE_FILE = os.environ.get("COOKIE_FILE") or next(
     (p for p in (
         "/etc/secrets/cookies.txt",
         os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "cookies.txt"),
     ) if os.path.exists(p)),
-    "/etc/secrets/cookies.txt",  
+    "/etc/secrets/cookies.txt", 
 )
+
+
+def _cookie_file_diagnostics(path: str) -> str:
+    if not os.path.exists(path):
+        return "file does not exist"
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as f:
+            lines = [f.readline() for _ in range(3)]
+        tab_lines = sum(1 for l in lines if "\t" in l)
+        return f"first_lines_have_tabs={tab_lines}/{len([l for l in lines if l.strip()])}"
+    except Exception as e:
+        return f"error reading file: {e}"
 
 
 logger.warning(
     "STARTUP COOKIE CHECK: resolved COOKIE_FILE=%s (exists=%s) | "
-    "/etc/secrets exists=%s, contents=%s",
+    "/etc/secrets exists=%s, contents=%s | format check: %s",
     COOKIE_FILE,
     os.path.exists(COOKIE_FILE),
     os.path.isdir("/etc/secrets"),
     os.listdir("/etc/secrets") if os.path.isdir("/etc/secrets") else "N/A",
+    _cookie_file_diagnostics(COOKIE_FILE),
 )
 
 
@@ -68,7 +82,7 @@ class DeleteAfterStreamFileResponse(FileResponse):
             logger.exception("Failed to clean up temp dir %s", self._temp_dir)
 
 
-def _build_ydl_opts(output_template: str) -> dict:
+def _build_ydl_opts(output_template: str, temp_dir: str) -> dict:
     opts = {
         "format": "best",
         "outtmpl": output_template,
@@ -78,9 +92,14 @@ def _build_ydl_opts(output_template: str) -> dict:
         "quiet": True,
         "no_warnings": True,
     }
-    
     if os.path.exists(COOKIE_FILE):
-        opts["cookiefile"] = COOKIE_FILE
+       
+        writable_cookie_copy = os.path.join(temp_dir, "cookies.txt")
+        try:
+            shutil.copyfile(COOKIE_FILE, writable_cookie_copy)
+            opts["cookiefile"] = writable_cookie_copy
+        except OSError:
+            logger.exception("Failed to copy cookie file to writable temp dir")
     else:
         logger.warning(
             "No cookies file found at %s — YouTube requests will go out "
@@ -118,7 +137,7 @@ def handle_download(request):
 
     temp_dir = tempfile.mkdtemp(prefix="ytdl_")
     output_template = os.path.join(temp_dir, "%(id)s.%(ext)s")
-    ydl_opts = _build_ydl_opts(output_template)
+    ydl_opts = _build_ydl_opts(output_template, temp_dir)
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
